@@ -81,6 +81,14 @@ Or install from ClawHub:
 clawhub install ernie-image
 ```
 
+## Follow Me
+
+Scan the QR code to follow:
+
+<p align="center">
+  <img src="assets/aiwork4me.jpg" alt="Scan to follow" width="200">
+</p>
+
 ## License
 
 MIT-0

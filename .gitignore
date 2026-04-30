@@ -14,6 +14,7 @@ wheels/
 *.jpg
 *.jpeg
 *.webp
+!assets/*.jpg
 
 # Environment
 .env
