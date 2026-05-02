@@ -1,93 +1,132 @@
-# ERNIE-Image Skill
+# AIwork4me/ernie-image-skill
 
-Generate images using Baidu AI Studio's ERNIE-Image and ERNIE-Image-Turbo models via the OpenAI-compatible API. A Claude Code skill for high-quality text-to-image generation with excellent Chinese language support.
+[![Validate skill](https://github.com/AIwork4me/ernie-image-skill/actions/workflows/validate.yml/badge.svg)](https://github.com/AIwork4me/ernie-image-skill/actions/workflows/validate.yml)
+
+`ernie-image` is a Claude Code skill for generating local PNG images with Baidu
+AI Studio's ERNIE-Image and ERNIE-Image-Turbo models through an
+OpenAI-compatible API.
+
+It is designed for explicit ERNIE/Baidu image-generation requests, especially
+Chinese-language text-to-image workflows. Prompts are sent to Baidu AI Studio,
+so do not include secrets, credentials, private personal data, or confidential
+business content.
 
 ## Features
 
-- Two model tiers: ERNIE-Image-Turbo (fast) and ERNIE-Image (high quality)
-- 7 supported image sizes covering square, landscape, and portrait ratios
-- Batch generation (1-4 images per request)
-- Seed-based reproducibility for consistent results
-- Adjustable quality parameters (inference steps, guidance scale)
-- Prompt enhancement for automatic prompt optimization
-- Excellent Chinese and English prompt support
+- ERNIE-Image-Turbo for fast drafts and ERNIE-Image for higher-quality outputs.
+- Seven supported sizes across square, landscape, and portrait ratios.
+- Batch generation from 1 to 4 images.
+- Optional seed for reproducible generations.
+- Adjustable inference steps, guidance scale, and prompt enhancement.
+- Local PNG output with `MEDIA:<absolute-path>` lines for compatible clients.
+- JSON output for automation and tests.
+- Safe output filenames that avoid path traversal and accidental overwrites.
+
+## Install as a Claude Code Skill
+
+Copy this repository into a skill directory named `ernie-image`:
+
+```bash
+mkdir -p ~/.claude/skills
+cp -r ernie-image-skill ~/.claude/skills/ernie-image
+```
+
+Project-level install:
+
+```bash
+mkdir -p .claude/skills
+cp -r ernie-image-skill .claude/skills/ernie-image
+```
+
+The directory name must match the skill name in `SKILL.md`: `ernie-image`.
 
 ## Prerequisites
 
 - Python 3.11+
-- [uv](https://docs.astral.sh/uv/) package manager
-- Baidu AI Studio access token ([get one here](https://aistudio.baidu.com/account/accessToken))
+- [uv](https://docs.astral.sh/uv/)
+- Baidu AI Studio access token:
+  <https://aistudio.baidu.com/account/accessToken>
 
-## Quick Start
-
-1. Set your API key:
+Set your API key locally:
 
 ```bash
 export AI_STUDIO_API_KEY="your_access_token"
 ```
 
-2. Generate an image:
+PowerShell:
 
-```bash
-uv run scripts/generate.py "一只可爱的猫咪坐在窗台上"
+```powershell
+$env:AI_STUDIO_API_KEY = "your_access_token"
 ```
 
-3. With options:
+## CLI Examples
+
+Generate one image:
 
 ```bash
-uv run scripts/generate.py "sunset over the ocean" --model ERNIE-Image --size 1376x768 --steps 16 --guidance 3.0
+uv run scripts/generate.py "A cinematic sunset over the ocean, wide angle, warm light"
+```
+
+Use the higher-quality model:
+
+```bash
+uv run scripts/generate.py "A futuristic city at night, rain, neon reflections" --model ERNIE-Image --size 1376x768 --steps 16 --guidance 3.0
+```
+
+Chinese prompt:
+
+```bash
+uv run scripts/generate.py "一只可爱的橘猫坐在窗台上，柔和晨光，摄影风格" --size 1024x1024
+```
+
+Structured JSON output:
+
+```bash
+uv run scripts/generate.py "minimal product photo of a ceramic mug" --json
 ```
 
 ## CLI Options
 
 | Option | Default | Description |
 |---|---|---|
-| `prompt` | (required) | Image description, max 1024 chars |
-| `--model` | `ERNIE-Image-Turbo` | Model: `ERNIE-Image` or `ERNIE-Image-Turbo` |
-| `--size` | `1024x1024` | Image dimensions (7 options) |
-| `--n` | 1 | Number of images (1-4) |
+| `prompt` | required | Image description, max 1024 characters |
+| `--model` | `ERNIE-Image-Turbo` | `ERNIE-Image` or `ERNIE-Image-Turbo` |
+| `--size` | `1024x1024` | Image dimensions |
+| `--n` | 1 | Number of images, 1-4 |
 | `--output` | `.` | Output directory |
+| `--format` | `b64_json` | API response format: `b64_json` or `url` |
 | `--seed` | random | Reproducibility seed |
-| `--steps` | 8 | Inference steps (4-20) |
-| `--guidance` | 1.0 | Guidance scale (1.0-7.5) |
+| `--steps` | provider default | Inference steps, 4-20 |
+| `--guidance` | provider default | Guidance scale, 1.0-7.5 |
 | `--use-pe` | off | Enable prompt enhancement |
-| `--prefix` | `ernie` | Output filename prefix |
-| `--json` | off | Output structured JSON |
+| `--prefix` | `ernie` | Safe output filename prefix |
+| `--json` | off | Print structured JSON |
 
 ## Supported Sizes
 
-| Size | Ratio | Best For |
+| Size | Ratio | Best for |
 |---|---|---|
-| `1024x1024` | 1:1 | General purpose (default) |
-| `1376x768` | 16:9 | Desktop wallpapers, headers |
-| `1264x848` | 3:2 | Photography landscapes |
-| `1200x896` | 4:3 | Traditional landscape |
-| `896x1200` | 3:4 | Instagram, print photos |
-| `848x1264` | 2:3 | Portrait photography |
-| `768x1376` | 9:16 | Mobile wallpapers, stories |
+| `1024x1024` | 1:1 | General purpose |
+| `1376x768` | 16:9 | Headers, wallpapers, presentation visuals |
+| `1264x848` | 3:2 | Photography-style landscapes |
+| `1200x896` | 4:3 | Product shots and traditional landscape layouts |
+| `896x1200` | 3:4 | Portrait cards and print layouts |
+| `848x1264` | 2:3 | Posters, covers, portraits |
+| `768x1376` | 9:16 | Mobile wallpapers and story covers |
 
-## Install as Claude Code Skill
+## Development
 
-Copy the skill folder to your project's `.claude/skills/` directory:
-
-```bash
-mkdir -p .claude/skills
-cp -r SKILL.md scripts references .claude/skills/ernie-image/
-```
-
-Or install from ClawHub:
+Run tests:
 
 ```bash
-clawhub install ernie-image
+uv run python -m unittest discover -s tests
 ```
 
-## Follow Me
+Validate the skill structure from a directory named `ernie-image`:
 
-Scan the QR code to follow:
-
-<p align="center">
-  <img src="assets/aiwork4me.jpg" alt="Scan to follow" width="200">
-</p>
+```bash
+uvx --from skills-ref agentskills validate /path/to/ernie-image
+```
 
 ## License
 

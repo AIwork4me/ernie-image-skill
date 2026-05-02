@@ -1,18 +1,13 @@
 ---
 name: ernie-image
-description: >-
-  Generate images using Baidu AI Studio's ERNIE-Image and ERNIE-Image-Turbo models
-  via the OpenAI-compatible API. Supports text-to-image generation with 7 size
-  options (square, landscape, portrait), batch generation (1-4 images), seed-based
-  reproducibility, and adjustable quality parameters (inference steps, guidance scale,
-  prompt enhancement). Use when users ask to generate images, create AI art, make
-  pictures, produce artwork, or need Chinese-language image generation. Also triggers
-  on "ERNIE Image", "ERNIE-Image", "ERNIE-Image-Turbo", "Baidu image generation",
-  "AI Studio image", "百度生图", "文生图", "生成图片", "AI绘图". Prefer this skill
-  over generic image generation when the user mentions Baidu, ERNIE, AI Studio, or
-  Chinese-language prompts.
-homepage: https://github.com/AIwork4me/ernie-image-skill
+description: "Generate images with Baidu AI Studio ERNIE-Image models through an OpenAI-compatible API. Use when the user explicitly asks for ERNIE-Image, Baidu AI Studio image generation, or Chinese-language text-to-image output and has AI_STUDIO_API_KEY configured. Prompts are sent to Baidu AI Studio; do not use for secrets, private data, unsafe content, or requests that violate provider or platform rules."
+license: MIT-0
 metadata:
+  version: "1.1.0"
+  author: "aiwork4me"
+  provider: "Baidu AI Studio"
+  required_env:
+    - AI_STUDIO_API_KEY
   openclaw:
     emoji: "\U0001F3A8"
     requires:
@@ -21,105 +16,118 @@ metadata:
     primaryEnv: AI_STUDIO_API_KEY
 ---
 
-# ERNIE-Image Generation
+# ERNIE-Image Skill
 
-Generate images using Baidu AI Studio's ERNIE-Image models through the OpenAI-compatible API. Two models are available:
+Generate images with Baidu AI Studio's ERNIE-Image models through the
+OpenAI-compatible API. This skill is best when the user specifically wants
+Baidu/ERNIE generation, Chinese-language image prompts, or local PNG outputs
+from a configured `AI_STUDIO_API_KEY`.
 
-- **ERNIE-Image-Turbo** (default): Fast generation, excellent for most use cases
-- **ERNIE-Image**: Higher quality, slower generation for when detail matters
+## Safety Boundary
 
-Both models understand Chinese prompts particularly well.
+- Use this skill only for explicit image-generation requests.
+- Prompts and generation parameters are sent to Baidu AI Studio. Do not include
+  secrets, credentials, private personal data, or confidential business data in
+  prompts.
+- Follow Baidu AI Studio terms and applicable platform rules. Decline unsafe,
+  deceptive, exploitative, or rights-violating image requests.
+- Do not print, store, or ask the user to paste `AI_STUDIO_API_KEY` into chat.
+  The script reads it from the environment only.
+- Generated files are written locally. Confirm the output directory when the
+  user has not specified one.
 
-## Prerequisites
+## Models
 
-- Python 3.11+ with `uv` installed
-- `AI_STUDIO_API_KEY` environment variable set to your Baidu AI Studio access token
-- Get a token at: https://aistudio.baidu.com/account/accessToken
+| Model | Best for |
+|---|---|
+| `ERNIE-Image-Turbo` | Fast drafts, iteration, batch previews |
+| `ERNIE-Image` | Slower, higher-quality final outputs |
 
-## Generation Workflow
+Chinese prompts usually work especially well with these models.
 
-### Step 1 -- Compose the prompt
+## Before Running
 
-Write a descriptive prompt (max 1024 characters, ~150 words). Chinese and English both work well. Be specific about subject, style, composition, and mood.
+Confirm that `AI_STUDIO_API_KEY` is set in the shell environment. If it is
+missing, tell the user to create an access token at
+`https://aistudio.baidu.com/account/accessToken` and set it locally.
 
-Good: "A golden retriever puppy sitting in a sunflower field at sunset, warm golden light, shallow depth of field, professional photography"
-Bad: "dog"
+Prefer `ERNIE-Image-Turbo`, `1024x1024`, `n=1`, and `b64_json` unless the user
+asks for different parameters.
 
-### Step 2 -- Choose parameters
+## Execution
+
+Run from the skill directory so `uv` can use the bundled project metadata and
+lockfile:
+
+```bash
+cd "${CLAUDE_SKILL_DIR}" && uv run scripts/generate.py "<PROMPT>" --model ERNIE-Image-Turbo --size 1024x1024
+```
+
+Batch generation:
+
+```bash
+cd "${CLAUDE_SKILL_DIR}" && uv run scripts/generate.py "<PROMPT>" --n 4 --output "<output_dir>"
+```
+
+Higher-quality generation:
+
+```bash
+cd "${CLAUDE_SKILL_DIR}" && uv run scripts/generate.py "<PROMPT>" --model ERNIE-Image --steps 16 --guidance 3.5
+```
+
+Reproducible generation:
+
+```bash
+cd "${CLAUDE_SKILL_DIR}" && uv run scripts/generate.py "<PROMPT>" --seed 42
+```
+
+Structured output:
+
+```bash
+cd "${CLAUDE_SKILL_DIR}" && uv run scripts/generate.py "<PROMPT>" --json
+```
+
+## Parameters
 
 | Parameter | Values | Default |
 |---|---|---|
-| model | `ERNIE-Image-Turbo`, `ERNIE-Image` | `ERNIE-Image-Turbo` |
-| size | `1024x1024`, `768x1376`, `1376x768`, `896x1200`, `1200x896`, `848x1264`, `1264x848` | `1024x1024` |
-| n | 1-4 | 1 |
-| seed | any integer | random |
-| steps | 4-20 | 8 |
-| guidance | 1.0-7.5 | 1.0 |
-| use-pe | flag | off |
+| `--model` | `ERNIE-Image-Turbo`, `ERNIE-Image` | `ERNIE-Image-Turbo` |
+| `--size` | `1024x1024`, `768x1376`, `1376x768`, `896x1200`, `1200x896`, `848x1264`, `1264x848` | `1024x1024` |
+| `--n` | 1-4 | 1 |
+| `--seed` | integer | random |
+| `--steps` | 4-20 | provider default |
+| `--guidance` | 1.0-7.5 | provider default |
+| `--use-pe` | flag | off |
+| `--prefix` | safe filename prefix | `ernie` |
+| `--json` | flag | off |
 
-Select size based on content: portraits and posters use vertical (`768x1376`, `848x1264`, `896x1200`), landscapes and covers use horizontal (`1376x768`, `1264x848`, `1200x896`), general use `1024x1024`.
+Select vertical sizes for posters, portraits, and mobile layouts; horizontal
+sizes for covers, wallpapers, and presentation visuals; square for general use.
 
-### Step 3 -- Run the generation script
+## Output
 
-Execute the bundled script with `uv run`:
-
-```bash
-uv run {baseDir}/scripts/generate.py "<PROMPT>" --model ERNIE-Image-Turbo --size 1024x1024
-```
-
-For batch generation:
-
-```bash
-uv run {baseDir}/scripts/generate.py "<PROMPT>" --n 4 --output ./output_dir
-```
-
-For higher quality with more inference steps and stronger guidance:
-
-```bash
-uv run {baseDir}/scripts/generate.py "<PROMPT>" --model ERNIE-Image --steps 16 --guidance 3.5
-```
-
-For reproducible results:
-
-```bash
-uv run {baseDir}/scripts/generate.py "<PROMPT>" --seed 42
-```
-
-### Step 4 -- Output
-
-The script saves images as PNG files to the output directory and prints:
-
-```
-Saved: ernie_20260430_110100.png (1.7 MB)
-MEDIA:/absolute/path/to/ernie_20260430_110100.png
-```
-
-The `MEDIA:` line enables automatic image attachment in compatible environments.
-
-For JSON output, add `--json` to get structured results:
+The script saves PNG files and prints one `MEDIA:<absolute-path>` line per image
+for compatible clients. With `--json`, it prints:
 
 ```json
 {
   "success": true,
   "model": "ERNIE-Image-Turbo",
-  "files": [{"path": "/abs/path/ernie_20260430_110100.png", "size_bytes": 1715660}],
   "prompt": "...",
-  "parameters": {"size": "1024x1024", "seed": 42}
+  "parameters": {"size": "1024x1024", "n": 1, "seed": 42},
+  "files": [{"path": "/abs/path/ernie_20260502_140000.png", "size_bytes": 1715660}]
 }
 ```
 
-## Quick Triggers
+The script avoids overwriting existing files by adding a numeric suffix when
+needed.
 
-When the user says any of these, treat the text after the trigger as the prompt and generate immediately with defaults:
+## Useful Triggers
 
-- Chinese: "生成图片：xxx" / "文生图：xxx" / "百度生图：xxx" / "ERNIE生图：xxx"
-- English: "generate image: xxx" / "ernie image: xxx" / "baidu image: xxx"
+Treat the text after these explicit triggers as the prompt:
 
-Defaults: model=`ERNIE-Image-Turbo`, size=`1024x1024`, n=1, b64_json format.
+- English: `ernie image: ...`, `baidu image: ...`, `AI Studio image: ...`
+- Chinese: `文心生图：...`, `百度生图：...`, `生成图片：...`
 
-## Notes
-
-- Images are saved locally as PNG files with `MEDIA:<path>` for auto-attach.
-- Chinese prompts work particularly well with ERNIE models.
-- Prompt enhancement (`--use-pe`) lets the model expand simple prompts into richer descriptions before generation. Enable for short prompts, disable for precise control.
-- For full API reference, model comparison, all size options, parameter details, and troubleshooting, read `{baseDir}/references/api-guide.md`.
+For full API notes, prompt guidance, and troubleshooting, read
+`references/api-guide.md`.

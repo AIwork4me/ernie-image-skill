@@ -1,0 +1,37 @@
+name: Validate skill
+
+on:
+  push:
+  pull_request:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Run unit tests
+        run: uv run python -m unittest discover -s tests
+
+      - name: Compile Python files
+        run: uv run python -m py_compile scripts/generate.py tests/test_generate.py
+
+      - name: Validate Claude skill structure
+        run: |
+          skill_dir="$(mktemp -d)/ernie-image"
+          mkdir -p "$skill_dir"
+          rsync -a --exclude '.git' --exclude '.venv' ./ "$skill_dir"/
+          uvx --from skills-ref agentskills validate "$skill_dir"

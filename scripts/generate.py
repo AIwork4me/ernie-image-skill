@@ -3,30 +3,29 @@
 # requires-python = ">=3.11"
 # dependencies = ["openai>=2.33.0"]
 # ///
+"""Generate images with Baidu AI Studio ERNIE-Image models.
+
+The script writes generated images as local PNG files and emits MEDIA lines that
+compatible clients can attach automatically.
 """
-ERNIE-Image generation script for Claude Code skill.
 
-Generate images using Baidu AI Studio's ERNIE-Image models via the
-OpenAI-compatible API.
-
-Usage:
-    uv run scripts/generate.py "prompt text" [options]
-
-Environment:
-    AI_STUDIO_API_KEY  Required. Your Baidu AI Studio access token.
-                       Get one at: https://aistudio.baidu.com/account/accessToken
-"""
+from __future__ import annotations
 
 import argparse
 import base64
+import binascii
 import json
 import os
+import re
 import sys
 import urllib.request
 from datetime import datetime
 from pathlib import Path
+from urllib.error import URLError
+from urllib.parse import urlparse
 
 from openai import OpenAI
+
 
 API_BASE_URL = "https://aistudio.baidu.com/llm/lmapi/v3"
 VALID_SIZES = [
@@ -40,6 +39,8 @@ VALID_SIZES = [
 ]
 VALID_MODELS = ["ERNIE-Image", "ERNIE-Image-Turbo"]
 MAX_PROMPT_LENGTH = 1024
+SAFE_PREFIX_RE = re.compile(r"[^A-Za-z0-9._-]+")
+DOWNLOAD_TIMEOUT_SECONDS = 120
 
 
 def create_parser() -> argparse.ArgumentParser:
@@ -48,7 +49,7 @@ def create_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""\
 Examples:
-  %(prog)s "一只可爱的猫咪坐在窗台上"
+  %(prog)s "一只可爱的橘猫坐在窗台上，柔和晨光，摄影风格"
   %(prog)s "a sunset over the ocean" --model ERNIE-Image --size 1376x768
   %(prog)s "mountain landscape" --n 2 --seed 42 --steps 12 --guidance 3.0
   %(prog)s "city skyline" --output ./images --prefix skyline --json
@@ -93,13 +94,13 @@ Examples:
         type=int,
         default=None,
         metavar="4-20",
-        help="Number of inference steps (default: 8)",
+        help="Number of inference steps (default: provider default)",
     )
     parser.add_argument(
         "--guidance",
         type=float,
         default=None,
-        help="Guidance scale 1.0-7.5 (default: 1.0)",
+        help="Guidance scale 1.0-7.5 (default: provider default)",
     )
     parser.add_argument(
         "--use-pe",
@@ -110,7 +111,7 @@ Examples:
     parser.add_argument(
         "--prefix",
         default="ernie",
-        help="Output filename prefix (default: ernie)",
+        help="Safe output filename prefix (default: ernie)",
     )
     parser.add_argument(
         "--json",
@@ -120,6 +121,25 @@ Examples:
         help="Output result as JSON to stdout",
     )
     return parser
+
+
+def sanitize_prefix(prefix: str) -> str:
+    if "/" in prefix or "\\" in prefix:
+        raise ValueError("--prefix must be a filename prefix, not a path")
+    sanitized = SAFE_PREFIX_RE.sub("_", prefix.strip()).strip("._-")
+    if not sanitized:
+        raise ValueError("--prefix must contain at least one letter or number")
+    return sanitized[:80]
+
+
+def unique_path(path: Path) -> Path:
+    if not path.exists():
+        return path
+    for index in range(1, 10000):
+        candidate = path.with_name(f"{path.stem}-{index}{path.suffix}")
+        if not candidate.exists():
+            return candidate
+    raise RuntimeError(f"Could not find an unused filename for {path}")
 
 
 def validate_args(args: argparse.Namespace) -> None:
@@ -137,6 +157,12 @@ def validate_args(args: argparse.Namespace) -> None:
 
     if args.steps is not None and (args.steps < 4 or args.steps > 20):
         print("Error: --steps must be between 4 and 20", file=sys.stderr)
+        sys.exit(1)
+
+    try:
+        args.prefix = sanitize_prefix(args.prefix)
+    except ValueError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
         sys.exit(1)
 
     output_dir = Path(args.output)
@@ -165,7 +191,7 @@ def generate_image(args: argparse.Namespace) -> object:
     if not api_key:
         print(
             "Error: AI_STUDIO_API_KEY environment variable is not set.\n"
-            "Get your access token at: https://aistudio.baidu.com/account/accessToken",
+            "Get an access token at: https://aistudio.baidu.com/account/accessToken",
             file=sys.stderr,
         )
         sys.exit(1)
@@ -179,7 +205,7 @@ def generate_image(args: argparse.Namespace) -> object:
     extra_body = build_extra_body(args)
 
     try:
-        response = client.images.generate(
+        return client.images.generate(
             model=args.model,
             prompt=args.prompt,
             n=args.n,
@@ -187,18 +213,30 @@ def generate_image(args: argparse.Namespace) -> object:
             response_format=args.response_format,
             extra_body=extra_body if extra_body else None,
         )
-    except Exception as e:
-        error_msg = str(e)
+    except Exception as exc:
+        error_msg = str(exc)
         print(f"Error: API call failed: {error_msg}", file=sys.stderr)
         if "401" in error_msg or "403" in error_msg:
             print(
-                "Hint: Check that your AI_STUDIO_API_KEY is valid.\n"
-                "Get a fresh token at: https://aistudio.baidu.com/account/accessToken",
+                "Hint: check that AI_STUDIO_API_KEY is valid and has model access.",
                 file=sys.stderr,
             )
         sys.exit(1)
 
-    return response
+
+def write_image_from_url(url: str, filepath: Path) -> None:
+    parsed = urlparse(url)
+    if parsed.scheme != "https":
+        raise ValueError("Image URL must use https")
+    request = urllib.request.Request(
+        url,
+        headers={"User-Agent": "ernie-image-skill/1.1"},
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=DOWNLOAD_TIMEOUT_SECONDS) as response:
+            filepath.write_bytes(response.read())
+    except URLError as exc:
+        raise RuntimeError(f"Could not download image URL: {exc}") from exc
 
 
 def save_images(response, args: argparse.Namespace) -> list[dict]:
@@ -206,30 +244,35 @@ def save_images(response, args: argparse.Namespace) -> list[dict]:
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     files = []
 
-    for i, img_data in enumerate(response.data):
-        suffix = f"_{i + 1}" if args.n > 1 else ""
+    for index, img_data in enumerate(response.data):
+        suffix = f"_{index + 1}" if args.n > 1 else ""
         filename = f"{args.prefix}_{timestamp}{suffix}.png"
-        filepath = output_dir / filename
+        filepath = unique_path(output_dir / filename)
 
         if args.response_format == "b64_json":
-            img_bytes = base64.b64decode(img_data.b64_json)
+            try:
+                img_bytes = base64.b64decode(img_data.b64_json, validate=True)
+            except (binascii.Error, TypeError) as exc:
+                raise RuntimeError("API returned invalid base64 image data") from exc
             filepath.write_bytes(img_bytes)
         else:
-            urllib.request.urlretrieve(img_data.url, str(filepath))
+            write_image_from_url(img_data.url, filepath)
 
         size_bytes = filepath.stat().st_size
-        files.append({
-            "path": str(filepath),
-            "size_bytes": size_bytes,
-            "size_mb": round(size_bytes / (1024 * 1024), 2),
-        })
+        files.append(
+            {
+                "path": str(filepath),
+                "size_bytes": size_bytes,
+                "size_mb": round(size_bytes / (1024 * 1024), 2),
+            }
+        )
 
     return files
 
 
-def main():
+def main(argv: list[str] | None = None) -> int:
     parser = create_parser()
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     validate_args(args)
 
     if not args.json_output:
@@ -245,7 +288,11 @@ def main():
         print(details)
 
     response = generate_image(args)
-    files = save_images(response, args)
+    try:
+        files = save_images(response, args)
+    except Exception as exc:
+        print(f"Error: failed to save generated image: {exc}", file=sys.stderr)
+        return 1
 
     if args.json_output:
         result = {
@@ -264,10 +311,11 @@ def main():
         }
         print(json.dumps(result, ensure_ascii=False, indent=2))
     else:
-        for f in files:
-            print(f"\nSaved: {Path(f['path']).name} ({f['size_mb']} MB)")
-            print(f"MEDIA:{f['path']}")
+        for file_info in files:
+            print(f"\nSaved: {Path(file_info['path']).name} ({file_info['size_mb']} MB)")
+            print(f"MEDIA:{file_info['path']}")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
