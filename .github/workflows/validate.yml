@@ -31,7 +31,7 @@ jobs:
 
       - name: Validate Claude skill structure
         run: |
-          skill_dir="$(mktemp -d)/ernie-image"
+          skill_dir="$(mktemp -d)/ernie-image-skill"
           mkdir -p "$skill_dir"
           rsync -a --exclude '.git' --exclude '.venv' ./ "$skill_dir"/
           uvx --from skills-ref agentskills validate "$skill_dir"

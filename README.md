@@ -4,7 +4,7 @@
 
 `ernie-image-skill` is a Claude Code skill for generating local PNG images with
 Baidu AI Studio's ERNIE-Image and ERNIE-Image-Turbo models through an
-OpenAI-compatible API. The Claude skill name is `ernie-image`.
+OpenAI-compatible API.
 
 It is designed for explicit ERNIE/Baidu image-generation requests, especially
 Chinese-language text-to-image workflows. Prompts are sent to Baidu AI Studio,
@@ -24,21 +24,21 @@ business content.
 
 ## Install as a Claude Code Skill
 
-Copy this repository into a skill directory named `ernie-image`:
+Copy this repository into a skill directory named `ernie-image-skill`:
 
 ```bash
 mkdir -p ~/.claude/skills
-cp -r ernie-image-skill ~/.claude/skills/ernie-image
+cp -r ernie-image-skill ~/.claude/skills/ernie-image-skill
 ```
 
 Project-level install:
 
 ```bash
 mkdir -p .claude/skills
-cp -r ernie-image-skill .claude/skills/ernie-image
+cp -r ernie-image-skill .claude/skills/ernie-image-skill
 ```
 
-The directory name must match the skill name in `SKILL.md`: `ernie-image`.
+The directory name must match the skill name in `SKILL.md`: `ernie-image-skill`.
 
 ## Prerequisites
 
@@ -122,12 +122,13 @@ Run tests:
 uv run python -m unittest discover -s tests
 ```
 
-Validate the skill structure from a directory named `ernie-image`:
+Validate the skill structure from a directory named `ernie-image-skill`:
 
 ```bash
-uvx --from skills-ref agentskills validate /path/to/ernie-image
+uvx --from skills-ref agentskills validate /path/to/ernie-image-skill
 ```
 
 ## License
 
 MIT-0
+

@@ -1,5 +1,5 @@
 ---
-name: ernie-image
+name: ernie-image-skill
 description: "Generate images with Baidu AI Studio ERNIE-Image models through an OpenAI-compatible API. Use when the user explicitly asks for ERNIE-Image, Baidu AI Studio image generation, or Chinese-language text-to-image output and has AI_STUDIO_API_KEY configured. Prompts are sent to Baidu AI Studio; do not use for secrets, private data, unsafe content, or requests that violate provider or platform rules."
 license: MIT-0
 metadata:

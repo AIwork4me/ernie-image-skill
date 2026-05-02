@@ -1,7 +1,7 @@
 # ERNIE-Image API Guide
 
 This guide covers the Baidu AI Studio ERNIE-Image models used by the
-`ernie-image` Claude Code skill.
+`ernie-image-skill` Claude Code skill.
 
 ## Scope and Privacy
 
