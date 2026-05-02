@@ -2,9 +2,9 @@
 
 [![Validate skill](https://github.com/AIwork4me/ernie-image-skill/actions/workflows/validate.yml/badge.svg)](https://github.com/AIwork4me/ernie-image-skill/actions/workflows/validate.yml)
 
-`ernie-image` is a Claude Code skill for generating local PNG images with Baidu
-AI Studio's ERNIE-Image and ERNIE-Image-Turbo models through an
-OpenAI-compatible API.
+`ernie-image-skill` is a Claude Code skill for generating local PNG images with
+Baidu AI Studio's ERNIE-Image and ERNIE-Image-Turbo models through an
+OpenAI-compatible API. The Claude skill name is `ernie-image`.
 
 It is designed for explicit ERNIE/Baidu image-generation requests, especially
 Chinese-language text-to-image workflows. Prompts are sent to Baidu AI Studio,
